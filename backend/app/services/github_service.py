@@ -109,7 +109,7 @@ def get_commit_activity(owner: str, repo: str):
         "max_pages": max_pages,
         "possibly_incomplete": (
             pages_fetched == max_pages
-            and len(all_commits) == max_pages * per_page
+            and len(all_commits) >= max_pages * per_page
         ),
         "daily_activity": [
             {

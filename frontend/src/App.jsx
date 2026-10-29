@@ -32,6 +32,17 @@ const [comparison, setComparison] = useState(null);
 const [compareLoading, setCompareLoading] = useState(false);
 const [compareError, setCompareError] = useState("");
 
+const [repositoryHistory, setRepositoryHistory] = useState(() => {
+  try {
+    return JSON.parse(
+      localStorage.getItem("repopulse-history") || "[]"
+    );
+  } catch {
+    return [];
+  }
+});
+
+
   async function analyzeRepository(event) {
     event.preventDefault();
 
@@ -46,6 +57,10 @@ const [compareError, setCompareError] = useState("");
     setError("");
     setRepository(null);
     setHealth(null);
+    setHealthInsights(null);
+    setActivity([]);
+    setContributors([]);
+    setChartError("");
 
     try {
       const response = await fetch(
@@ -60,49 +75,79 @@ const [compareError, setCompareError] = useState("");
         );
       }
 
-      const data = await response.json();
-      setRepository(data);
+      
+const data = await response.json();
+setRepository(data);
+
+setRepositoryHistory((previousHistory) => {
+  const entry = {
+    full_name: data.full_name || `${owner}/${repo}`,
+    owner,
+    repo,
+    analyzedAt: new Date().toISOString(),
+  };
+
+  const updatedHistory = [
+    entry,
+    ...previousHistory.filter(
+      (item) => item.full_name !== entry.full_name
+    ),
+  ].slice(0, 10);
+
+  localStorage.setItem(
+    "repopulse-history",
+    JSON.stringify(updatedHistory)
+  );
+
+  return updatedHistory;
+});
+
+
       const [activityResponse, contributorsResponse] = await Promise.all([
-  fetch(`${API}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commit-activity`),
-  fetch(`${API}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contributors`),
-]);
+        fetch(`${API}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commit-activity`),
+        fetch(`${API}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contributors`),
+      ]);
 
-if (activityResponse.ok && contributorsResponse.ok) {
-  const activityData = await activityResponse.json();
-  const contributorData = await contributorsResponse.json();
+      if (activityResponse.ok && contributorsResponse.ok) {
+        const activityData = await activityResponse.json();
+        const contributorData = await contributorsResponse.json();
 
-  setActivity(activityData.daily_activity || []);
-  setContributors(contributorData.contributors || []);
-  setChartError("");
-} else {
-  setChartError("Could not load analytics data for this repository.");
-}
+        setActivity(activityData.daily_activity || []);
+        setContributors(contributorData.contributors || []);
+        setChartError("");
+        } else {
+          setActivity([]);
+          setContributors([]);
+          setChartError(
+          "Analytics data is temporarily unavailable. Please try again later."
+          );
+        }
 
+      const healthResponse = await fetch(
+        `${API}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/health-score`
+      );
 
-const healthResponse = await fetch(
-  `${API}/api/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/health-score`
-);
+      const healthData = await healthResponse.json();
 
-const healthData = await healthResponse.json();
-setHealth(healthData);
-setHealthInsights(healthData);
-
-
-      if (healthResponse.ok) {
-        setHealth(await healthResponse.json());
+      if (!healthResponse.ok) {
+        throw new Error(
+          healthData.detail || "Failed to fetch repository health"
+        );
       }
+
+      setHealth(healthData);
+      setHealthInsights(healthData);
     } catch (err) {
       setError(
         err.message === "Failed to fetch"
           ? "Cannot connect to the backend. Make sure FastAPI is running on port 8000 and CORS is enabled."
-          : err.message
+          : err.message || "Something went wrong."
       );
     } finally {
       setLoading(false);
     }
   }
-
-async function compareRepositories(event) {
+  async function compareRepositories(event) {
   event.preventDefault();
 
   setCompareLoading(true);
@@ -176,9 +221,14 @@ async function compareRepositories(event) {
   ⇄ Compare Repositories
 </button>
 
-<button className="nav-item">
+
+<button
+  className={`nav-item ${page === "history" ? "active" : ""}`}
+  onClick={() => setPage("history")}
+>
   ◷ Repository History
 </button>
+
 
 
         <div className="sidebar-bottom">
@@ -595,10 +645,72 @@ async function compareRepositories(event) {
       </>
     )}
   </>
+
+) : page === "history" ? (
+  <section className="panel history-panel">
+    <div className="panel-heading">
+      <div>
+        <h2>Repository History</h2>
+        <p>Your 10 most recently analyzed repositories.</p>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          localStorage.removeItem("repopulse-history");
+          setRepositoryHistory([]);
+        }}
+        disabled={repositoryHistory.length === 0}
+      >
+        Clear History
+      </button>
+    </div>
+
+    {repositoryHistory.length === 0 ? (
+      <div className="empty-chart">
+        <strong>No repository history yet</strong>
+        <p>Analyze a GitHub repository from Overview to save it here.</p>
+        <button
+          type="button"
+          onClick={() => setPage("overview")}
+        >
+          Go to Overview
+        </button>
+      </div>
+    ) : (
+      <div className="history-list">
+        {repositoryHistory.map((item) => (
+          <div className="history-item" key={item.full_name}>
+            <div>
+              <h3>{item.full_name}</h3>
+              <p>
+                Analyzed on{" "}
+                {new Date(item.analyzedAt).toLocaleString()}
+              </p>
+            </div>
+
+            
+<button
+  type="button"
+  onClick={() => {
+    setRepoName(item.full_name);
+    setPage("overview");
+
+    analyzeRepository({
+      preventDefault: () => {},
+    });
+  }}
+>
+  Load Repository
+</button>
+
+          </div>
+        ))}
+      </div>
+    )}
+  </section>
 ) : (
   <section className="panel">
-
-
     <h2>Compare Repositories</h2>
     <p>Compare GitHub repositories side by side.</p>
 

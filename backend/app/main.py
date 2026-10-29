@@ -48,10 +48,13 @@ def database_health():
             "mysql_version": version
         }
     except Exception:
-        return {
-            "status": "disconnected",
-            "message": "Database connection failed"
-        }
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "status": "disconnected",
+                "message": "Database connection failed"
+            }
+        )
 
 
 @app.get("/api/repositories/{owner}/{repo}")

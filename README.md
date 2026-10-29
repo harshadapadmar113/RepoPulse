@@ -10,6 +10,9 @@ RepoPulse is a full-stack web application that analyzes GitHub repositories and 
 - **Repository Comparison:** Compare two GitHub repositories side by side.
 - **Repository Health Score:** View an overall health score, status, and metric breakdown.
 - **Health Recommendations:** Display rule-based suggestions based on repository health metrics.
+- **Repository History:** View recently analyzed repositories using locally stored browser history.
+- **Repository Data Storage:** Save repository details and record metric snapshots in MySQL.
+- **Historical Snapshots:** Retrieve previously recorded stars, forks, and open issues.
 
 ## Tech Stack
 
@@ -21,6 +24,17 @@ RepoPulse is a full-stack web application that analyzes GitHub repositories and 
 | Data Source | GitHub API |
 | API Documentation | FastAPI Swagger UI |
 | Testing | Python test suite |
+## Testing
+
+RepoPulse includes automated backend tests using `pytest` and FastAPI's `TestClient`.
+
+Run the tests from the project root:
+
+```bash
+python -m pytest backend/tests -v
+```
+
+The current test suite checks the home endpoint, health endpoint, and required-parameter validation for repository comparison.
 
 ## Architecture
 
